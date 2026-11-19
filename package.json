@@ -1,0 +1,21 @@
+{
+  "name": "unavi-cmc-pricing",
+  "version": "0.1.0",
+  "description": "Prices the long tail of a crypto portfolio with the CoinMarketCap API: resolves tokens by contract address, fills only the gaps a primary price source leaves, and keeps every call as evidence.",
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx demo/price-wallet.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

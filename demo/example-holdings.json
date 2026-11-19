@@ -1,0 +1,11 @@
+[
+ {"symbol":"SOL","amount":"2.5"},
+ {"symbol":"ETH","amount":"0.42"},
+ {"symbol":"USDC","amount":"350"},
+ {"symbol":"JUP","address":"JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN","amount":"1200"},
+ {"symbol":"BONK","address":"DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263","amount":"2500000"},
+ {"symbol":"WIF","address":"EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm","amount":"80"},
+ {"symbol":"OSMO","amount":"150"},
+ {"symbol":"MNDE","amount":"900"},
+ {"symbol":"NOTREAL","address":"NotARealMint111111111111111111111","amount":"1"}
+]
