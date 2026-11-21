@@ -33,9 +33,11 @@ export function poolKind(chain:Chain,pool:Pool):{kind:'v2';protocol:string}|{kin
  return pool.factory===ETHEREUM_V3_FACTORY&&/^uniswap v3\b/i.test(pool.protocol)?{kind:'v3'}:null;
 }
 
+// fetchedAt is CoinMarketCap's response time, so a cached record keeps its real age.
 export async function securityDetail(client:CmcClient,chain:Chain,address:string):Promise<any|null>{
- const rows=(await client.get('/v1/dex/security/detail',{platformName:chain,address}))?.data;
- return (Array.isArray(rows)?rows:[]).find(r=>evm(String(r?.tokenContractAddress??''))===evm(address))??null;
+ const body=await client.get('/v1/dex/security/detail',{platformName:chain,address}),rows=body?.data;
+ const row=(Array.isArray(rows)?rows:[]).find(r=>evm(String(r?.tokenContractAddress??''))===evm(address));
+ return row?{...row,fetchedAt:typeof body?.status?.timestamp==='string'?body.status.timestamp:null}:null;
 }
 
 export type Holder={address:string;balance:string;percent:string|null;name:string|null;tags:string[]};

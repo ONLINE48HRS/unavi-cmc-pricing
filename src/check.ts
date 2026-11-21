@@ -32,7 +32,7 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
  const dex=await dexPrice(deps.cmc,input.chain,addr);
  // A listed quote is the mark; otherwise CMC's DEX price. A DEX price without a time cannot be shown as fresh.
  const mark=quote?{price:quote.price,at:quote.at,source:`CoinMarketCap #${listed!.id} quotes/latest`}:dex?{price:dex.price,at:dex.at??'1970-01-01T00:00:00.000Z',source:'CoinMarketCap DEX token price'}:null;
- const security={...classifySecurity(await securityDetail(deps.cmc,input.chain,addr),{verifiedSellTax:input.verifiedSellTax}),at:clock().toISOString()};
+ const detail=await securityDetail(deps.cmc,input.chain,addr),security={...classifySecurity(detail,{verifiedSellTax:input.verifiedSellTax}),at:detail?.fetchedAt??clock().toISOString()};
  const pools=await dexPools(deps.cmc,input.chain,addr,10);
  let overhang:ReturnType<typeof holderOverhang>|null=null;
  try{overhang=holderOverhang(await holdersList(deps.cmc,input.chain,addr),{pools:new Set(pools.map(p=>p.address))})}catch(e){if(!(e instanceof CmcError))throw e;notes.push(`holders list unavailable: ${e.message}`)}

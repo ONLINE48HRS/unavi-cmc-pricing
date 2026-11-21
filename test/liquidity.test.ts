@@ -133,3 +133,15 @@ test('portfolio: totals reconcile to the crypto mark, shared venues are not summ
  assert.deepEqual([s.assessedMark,s.proceeds,s.difference,s.markedGain,s.adjustedGain,s.netWorth,s.differenceShareOfNetWorth,s.unpriced],['10000','8500','1500','3000','1500','150000','0.01',1]);
  const both=summarise([a,b]);assert.deepEqual([both.assessedMark,both.notAssessedMark,both.overlaps],['0','20000',[{venue:'jupiter:TKN',symbols:['TKN','TKN2']}]]);
 });
+
+test('cache: repeats inside the freshness window cost nothing; failures and unlisted endpoints are never kept',async()=>{
+ const {cachedClient,securityDetail}=await import('../src/index.ts');
+ let calls=0,fail=false,t=0;const base=cmcClient({apiKey:'k',fetcher:async()=>{calls++;return fail?reply({status:{error_code:500,error_message:'down'}},500):reply({data:[{tokenContractAddress:'0xAB',extra:{sellTax:'0'}}],status:{error_code:'0',credit_count:1,timestamp:'2026-11-21T08:00:00.000Z'}})}});
+ const client=cachedClient(base,{clock:()=>t});
+ const first=await securityDetail(client,'ethereum','0xab');await securityDetail(client,'ethereum','0xab');
+ assert.equal(calls,1);assert.equal(first.fetchedAt,'2026-11-21T08:00:00.000Z','the record keeps CMC\'s own time, not the time it was served');
+ t=24*3_600_000;await securityDetail(client,'ethereum','0xab');assert.equal(calls,2,'refetched once its 24 hours are up');
+ await client.get('/v1/key/info');await client.get('/v1/key/info');assert.equal(calls,4,'endpoints without a rule are not cached');
+ fail=true;await assert.rejects(client.get('/v1/dex/token/price',{platform:'ethereum',address:'0x1'}));fail=false;
+ await client.get('/v1/dex/token/price',{platform:'ethereum',address:'0x1'});assert.equal(calls,6,'a failure is retried, not served from the cache');
+});
