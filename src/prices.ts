@@ -1,6 +1,7 @@
 import type {CmcClient} from './client.ts';
 
-export type Quote={id:number;symbol:string;price:string;currency:string;at:string};
+// cexVolume24h is the exchange (centralised) share of 24h volume, which the indicative time-to-sell uses.
+export type Quote={id:number;symbol:string;price:string;currency:string;at:string;volume24h:string|null;cexVolume24h:string|null};
 export type DailyClose={id:number;day:string;price:string;currency:string;at:string};
 
 // CMC returns JSON numbers; tiny token prices arrive as 1.23e-7. Write them out in full so they can be stored as exact decimals.
@@ -17,7 +18,7 @@ export async function latestQuotes(client:CmcClient,ids:number[],currency='USD')
  for(let i=0;i<unique.length;i+=100){
   const body=await client.get('/v3/cryptocurrency/quotes/latest',{id:unique.slice(i,i+100).join(','),convert:currency,skip_invalid:'true'});
   for(const coin of (body?.data??[]) as any[]){const q=(coin.quote??[]).find((x:any)=>String(x.symbol).toUpperCase()===currency)??coin.quote?.[0];
-   if(q&&typeof q.price==='number')out.set(Number(coin.id),{id:Number(coin.id),symbol:coin.symbol,price:decimal(q.price),currency,at:q.last_updated??coin.last_updated})}
+   if(q&&typeof q.price==='number')out.set(Number(coin.id),{id:Number(coin.id),symbol:coin.symbol,price:decimal(q.price),currency,at:q.last_updated??coin.last_updated,volume24h:typeof q.volume_24h==='number'?decimal(q.volume_24h):null,cexVolume24h:typeof q.cex_volume_24h==='number'?decimal(q.cex_volume_24h):null})}
  }
  return out;
 }

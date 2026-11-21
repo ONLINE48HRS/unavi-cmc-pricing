@@ -2,3 +2,10 @@ export {cmcClient,CmcError,type CallRecord,type CmcClient,type Fetcher} from './
 export {resolver,type Asset,type Resolved} from './resolve.ts';
 export {latestQuotes,dailyCloses,decimal,type Quote,type DailyClose} from './prices.ts';
 export {priceHoldings,multiply,type Holding,type Priced} from './fill.ts';
+export {fifoSlice,gains,type Lot,type LotSlice} from './lots.ts';
+export {v2Out,v2Bridge,routeBridge,v2MaxSale,V2_FEES,type Bridge,type PoolState} from './pool-model.ts';
+export {dexPrice,dexPools,poolKind,securityDetail,holdersList,ETHEREUM_V2,ETHEREUM_V3_FACTORY,type Chain,type DexPrice,type Pool,type PoolSide,type Holder} from './dex.ts';
+export {classifySecurity,type Security,type SecurityClass} from './security.ts';
+export {holderOverhang,exclusion,type Exclusion} from './overhang.ts';
+export {jupiterClient,QuoteError,USDC_MINT,type JupiterQuote,type QuoteRecord} from './jupiter.ts';
+export {assessPosition,summarise,sliderQuantities,timeToSell,FRESH_MS,PARTICIPATION,type Assessment,type PositionInput,type Venue,type PoolVenue,type RouteVenue,type RouteQuote,type State} from './assess.ts';

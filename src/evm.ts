@@ -28,6 +28,9 @@ export async function v2Reserves(rpc:Rpc,pair:string,block:number){
  const [r0,r1]=words(reserves);return {reserve0:r0,reserve1:r1,token0:'0x'+word(token0).slice(24),block};
 }
 
+// UniswapV2Pair.factory(): which deployment the pair belongs to, so a pool is modelled only with its own fee.
+export async function v2Factory(rpc:Rpc,pair:string,block:number){return '0x'+word(await call(rpc,pair,'0xc45a0155',block)).slice(24)}
+
 // UniswapV2Router02.getAmountsOut(amountIn, path): the protocol's own integer maths, for validating the model.
 export async function v2RouterOut(rpc:Rpc,amountIn:bigint,path:string[],block:number){
  const data='0xd06ca61f'+uint(amountIn)+uint(64n)+uint(BigInt(path.length))+path.map(word).join('');

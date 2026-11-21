@@ -16,7 +16,7 @@ export function v2Out(pool:PoolState,quantity:string,tax='0'){
  return effective.isZero()?new Decimal(0):y.mul(effective).div(x.plus(effective));
 }
 
-export type Bridge={mark:string;proceeds:string;parts:{name:'reference'|'tax'|'fee'|'impact'|'route'|'residual';value:string}[]};
+export type Bridge={mark:string;proceeds:string;parts:{name:'reference'|'tax'|'fee'|'impact'|'route'|'residual'|'blocked';value:string}[]};
 
 // Mark-to-proceeds bridge for the pool model, in the reporting currency. Every part is a value at the pool's spot price,
 // so the parts add to mark − proceeds exactly:
