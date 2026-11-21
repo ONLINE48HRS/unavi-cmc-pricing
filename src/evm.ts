@@ -31,10 +31,11 @@ export async function v2Reserves(rpc:Rpc,pair:string,block:number){
 // UniswapV2Pair.factory(): which deployment the pair belongs to, so a pool is modelled only with its own fee.
 export async function v2Factory(rpc:Rpc,pair:string,block:number){return '0x'+word(await call(rpc,pair,'0xc45a0155',block)).slice(24)}
 
-// UniswapV2Router02.getAmountsOut(amountIn, path): the protocol's own integer maths, for validating the model.
-export async function v2RouterOut(rpc:Rpc,amountIn:bigint,path:string[],block:number){
+// UniswapV2Router02.getAmountsOut(amountIn, path): the protocol's own integer maths, for validating the model. Forks such as
+// SushiSwap deploy the same router code at their own address.
+export async function v2RouterOut(rpc:Rpc,amountIn:bigint,path:string[],block:number,router=UNISWAP_V2_ROUTER){
  const data='0xd06ca61f'+uint(amountIn)+uint(64n)+uint(BigInt(path.length))+path.map(word).join('');
- return words(await call(rpc,UNISWAP_V2_ROUTER,data,block)).at(-1)!;
+ return words(await call(rpc,router,data,block)).at(-1)!;
 }
 
 // UniswapV3Pool.fee(), in hundredths of a basis point (3000 = 0.30%).

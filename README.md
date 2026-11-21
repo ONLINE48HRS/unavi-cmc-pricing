@@ -52,7 +52,7 @@ CoinMarketCap: 10 calls, 10 credits
 - **Exchange-only holdings:** an indicative time to sell at 1%, 5%, 10% or 15% of CMC's exchange volume. This is labelled as a warning, never as proceeds.
 - **Three states:** assessed, indicative or not assessed. Portfolio totals reconcile to the crypto mark. Two holdings selling into the same venue are moved out of the assessed total, not summed. Net worth is passed through unchanged.
 
-Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with the Uniswap v2 router at one block (matched within one raw unit on PEPE/WETH). Tests use synthetic fixtures only; no recorded CoinMarketCap data is shipped here.
+Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with each protocol's own router at one block. On 21 Nov 2026 (block 26462035) it matched on 20 sales across 5 pools (Uniswap v2 PEPE, USDC, DAI and WBTC against WETH; SushiSwap USDC/WETH), from 0.01% to 10% of the reserve, within one raw unit (largest difference 1.4e-16; tolerance 0.1%). Tests use synthetic fixtures only; no recorded CoinMarketCap data is shipped here.
 
 ## Run the demo
 
