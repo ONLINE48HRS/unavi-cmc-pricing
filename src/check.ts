@@ -71,10 +71,10 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
  }
 
  const now=clock().toISOString(),symbol=listed?.symbol??pools.flatMap(p=>p.tokens).find(t=>t.address===addr)?.symbol??'?';
- const at=(q:string,withOverhang:boolean)=>assessPosition({symbol,quantity:q,now,mark,security,venues,lots:input.lots,volume24hUsd:quote?.cexVolume24h??null,
+ const at=(q:string,withOverhang:boolean)=>assessPosition({symbol,quantity:q,now,mark,security,venues,lots:input.lots,volume24hUsd:quote?.volume24h??null,
   overhang:withOverhang&&held.gt(0)?{tokens:held.toFixed(),liquidityUsd:dex?.liquidityUsd??null}:undefined});
  return {
-  token:{chain:input.chain,address:addr,symbol,decimals,cmcId:listed?.id??null,matchedBy:listed?.by??null},
+  token:{chain:input.chain as Chain|'listed',address:addr,symbol,decimals,cmcId:listed?.id??null,matchedBy:listed?.by??null},
   mark,security,quantity,started,assessedAt:now,block,notes,
   pools:pools.map(p=>({address:p.address,protocol:p.protocol,kind:poolKind(input.chain,p)?.kind??null,liquidityUsd:p.liquidityUsd})),
   overhang:overhang&&{tokens:held.toFixed(),counted:overhang.counted.map(h=>({address:h.address,name:h.name,balance:h.balance})),excluded:overhang.excluded.map(e=>({address:e.holder.address,name:e.holder.name,reason:e.reason}))},
@@ -83,3 +83,20 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
 }
 
 function need<T>(v:T|undefined,what:string):T{if(v===undefined)throw Error(`This chain needs ${what}`);return v}
+
+// Major native coins (BTC, ETH, SOL…) have no contract or pool to model. They are matched by CoinMarketCap id from a fixed
+// list, never by a typed symbol, and rated against the whole market's 24-hour volume: indicative, never a proceeds figure.
+export const MAJOR_COINS:Record<string,number>={BTC:1,ETH:1027,SOL:5426,BNB:1839,XRP:52,ADA:2010,DOGE:74,TRX:1958,AVAX:5805,DOT:6636,LTC:2,BCH:1831,ATOM:3794,XLM:512,TON:11419,GRAM:11419};
+export type CheckResult=Awaited<ReturnType<typeof checkToken>>;
+export async function checkListedCoin(input:{cmcId:number;quantity:string;lots?:Lot[]},deps:{cmc:CmcClient;now?:()=>Date}):Promise<CheckResult>{
+ const clock=deps.now??(()=>new Date()),started=clock().toISOString();
+ if(!(new Decimal(input.quantity).gt(0)))throw RangeError('Quantity must be positive');
+ const q=(await latestQuotes(deps.cmc,[input.cmcId])).get(input.cmcId);
+ const mark=q?{price:q.price,at:q.at,source:`CoinMarketCap #${input.cmcId} quotes/latest`}:null,quantity=new Decimal(input.quantity).toDecimalPlaces(8,Decimal.ROUND_DOWN).toFixed();
+ const security={...classifySecurity(null),at:clock().toISOString()},now=clock().toISOString(),symbol=q?.symbol??'?';
+ const at=(size:string)=>assessPosition({symbol,quantity:size,now,mark,security,venues:[],lots:input.lots,volume24hUsd:q?.volume24h??null});
+ return {token:{chain:'listed' as Chain|'listed',address:`cmc:${input.cmcId}`,symbol,decimals:8,cmcId:input.cmcId,matchedBy:'id' as 'address'|'symbol'|'id'|null},
+  mark,security,quantity,started,assessedAt:now,block:null,notes:['A native coin: no on-chain pool to model, so the exit is rated against the whole market’s 24-hour volume.'],
+  pools:[],overhang:null,full:at(quantity),slider:sliderQuantities(quantity,8).map(at),venues:[] as Venue[],
+  evidence:{cmc:deps.cmc.calls.map(({body,...c})=>c),jupiter:[],credits:deps.cmc.credits()}} as unknown as CheckResult;
+}

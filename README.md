@@ -49,7 +49,13 @@ CoinMarketCap: 10 calls, 10 credits
 - **Holder overhang** (`/v1/dex/holders/list`):
   - Counts the top 10 holders, excluding pools, burn, exchange and locker wallets, each with its reason.
   - Compares their tokens with DEX liquidity, then prices the user's sale after they sell first. This is exact for a pool; for routes it is shown only when the two quotes are consistent.
-- **Exchange-only holdings:** an indicative time to sell at 1%, 5%, 10% or 15% of CMC's exchange volume. This is labelled as a warning, never as proceeds.
+- **Liquidity rating, for every holding:** the holding's value as a share of the whole market's 24-hour volume (CMC `volume_24h`).
+  - **Low:** under 0.5%.
+  - **Medium:** under 2%.
+  - **High:** 2% or more.
+
+  At a 10% share of trading, 0.5% of a day's volume sells in about an hour.
+- **Major native coins** (BTC, ETH, SOL, BNB, XRP and others): `checkListedCoin` matches them by CMC id from a fixed list, never by a typed symbol. There is no pool to model, so they get the rating and an indicative time to sell at 1%, 5%, 10% or 15% of 24-hour volume. This is shown as a warning, never as proceeds. On 21 Nov 2026, $1B of BTC was about 1.5% of its $66B daily volume: Medium.
 - **Three states:** assessed, indicative or not assessed. Portfolio totals reconcile to the crypto mark. Two holdings selling into the same venue are moved out of the assessed total, not summed. Net worth is passed through unchanged.
 
 Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with each protocol's own router at one block. On 21 Nov 2026 (block 26462035) it matched on 20 sales across 5 pools (Uniswap v2 PEPE, USDC, DAI and WBTC against WETH; SushiSwap USDC/WETH), from 0.01% to 10% of the reserve, within one raw unit (largest difference 1.4e-16; tolerance 0.1%). Tests use synthetic fixtures only; no recorded CoinMarketCap data is shipped here.

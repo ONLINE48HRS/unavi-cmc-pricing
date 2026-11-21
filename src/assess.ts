@@ -50,6 +50,15 @@ function bridgeFor(v:Venue,quantity:string,markPrice:string,tax:string,out:Decim
  return routeBridge(quantity,{markPrice,quotePrice:v.output.price,proceedsOut:out.toFixed(),referenceOutPerToken:ref});
 }
 
+// Liquidity rating: the holding's value as a share of the whole market's 24-hour volume. Under 0.5% sells in about an
+// hour at a 10% share of trading; 2% or more takes most of a working day and moves the price (owner-set bands).
+export const LIQUIDITY_BANDS={low:'0.005',medium:'0.02'};
+export function liquidityRating(valueUsd:string,volume24hUsd:string|null|undefined){
+ if(!volume24hUsd||new Decimal(volume24hUsd).lte(0))return null;
+ const share=new Decimal(valueUsd).div(volume24hUsd);
+ return {share:share.toFixed(),band:share.lt(LIQUIDITY_BANDS.low)?'low' as const:share.lt(LIQUIDITY_BANDS.medium)?'medium' as const:'high' as const};
+}
+
 // Days to sell at a share of market-wide 24h volume. Volume is not depth, so this is a warning, never a proceeds figure.
 export function timeToSell(valueUsd:string,volume24hUsd:string|null|undefined){
  if(!volume24hUsd||new Decimal(volume24hUsd).lte(0))return null;
@@ -59,7 +68,8 @@ export function timeToSell(valueUsd:string,volume24hUsd:string|null|undefined){
 export function assessPosition(input:PositionInput){
  const {quantity,now,mark,security}=input,reasons:string[]=[],conditions:string[]=[];
  const base={symbol:input.symbol,quantity,mark:mark?new Decimal(quantity).mul(mark.price).toFixed():null};
- const none=(state:State,extra:object={})=>({...base,state,method:null,venue:null,proceeds:null,bridge:null,gains:null,overhang:null,reasons,conditions,timeToSell:mark?timeToSell(base.mark!,input.volume24hUsd):null,...extra});
+ // Without an exit estimate the marked gain is still shown on the same lots; the gain after exit stays empty.
+ const none=(state:State,extra:object={})=>({...base,state,method:null,venue:null,proceeds:null,bridge:null,gains:mark&&input.lots?gains({lots:input.lots,quantity,markPrice:mark.price,proceeds:null}):null,overhang:null,reasons,conditions,timeToSell:mark?timeToSell(base.mark!,input.volume24hUsd):null,liquidity:mark?liquidityRating(base.mark!,input.volume24hUsd):null,...extra});
  if(!mark){reasons.push('unpriced');return none('not-assessed')}
  if(age(now,mark.at)>FRESH_MS.price){reasons.push('price stale');return none('not-assessed')}
  // Exchange-listed holdings without a usable on-chain exit keep their mark and a time-to-sell warning, outside the assessed total.

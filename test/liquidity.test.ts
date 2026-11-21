@@ -145,3 +145,17 @@ test('cache: repeats inside the freshness window cost nothing; failures and unli
  fail=true;await assert.rejects(client.get('/v1/dex/token/price',{platform:'ethereum',address:'0x1'}));fail=false;
  await client.get('/v1/dex/token/price',{platform:'ethereum',address:'0x1'});assert.equal(calls,6,'a failure is retried, not served from the cache');
 });
+
+test('liquidity rating: holding value against the whole market\'s 24h volume, Low under 0.5%, Medium under 2%, High from 2%',async()=>{
+ const {liquidityRating,checkListedCoin,MAJOR_COINS}=await import('../src/index.ts');
+ assert.deepEqual([liquidityRating('4999','1000000')?.band,liquidityRating('5000','1000000')?.band,liquidityRating('19999','1000000')?.band,liquidityRating('20000','1000000')?.band],['low','medium','medium','high']);
+ assert.equal(liquidityRating('1','0'),null,'no volume, no rating');assert.equal(liquidityRating('1',null),null);
+ assert.equal(assessPosition(base({venues:[],volume24hUsd:'400000'})).liquidity!.band,'high','$10,000 against $400,000 of volume is 2.5%');
+ assert.deepEqual([MAJOR_COINS.BTC,MAJOR_COINS.ETH,MAJOR_COINS.SOL,MAJOR_COINS.TON,MAJOR_COINS.GRAM],[1,1027,5426,11419,11419]);
+ // $1B of BTC at a $60,000 price and $66.18B of daily volume (CMC, 21 Nov 2026) is about 1.5%: Medium, not yet High.
+ const cmc=cmcClient({apiKey:'k',fetcher:async url=>{assert.match(url,/\/v3\/cryptocurrency\/quotes\/latest\?id=1&/);return reply({data:[{id:1,symbol:'BTC',quote:[{symbol:'USD',price:60000,volume_24h:66180000000,last_updated:SOON}]}],status:{error_code:'0',credit_count:1}})}});
+ const r=await checkListedCoin({cmcId:1,quantity:'16666.66666667',lots:[{id:'l',acquiredAt:'2025-01-01',quantity:'16666.66666667',cost:'800000000'}]},{cmc,now:()=>new Date(NOW)});
+ assert.deepEqual([r.token.symbol,r.token.chain,r.full.state,r.full.proceeds,r.full.liquidity!.band],['BTC','listed','indicative',null,'medium']);
+ assert.equal(r.full.gains!.markedGain,new Decimal('16666.66666667').mul(60000).minus(800000000).toFixed(),'the marked gain still uses the lots');
+ assert.equal(r.slider.length,4);assert.equal(r.slider[0].liquidity!.band,'low','a tenth of the holding is Low');assert.ok(r.full.timeToSell!.length===4);
+});
