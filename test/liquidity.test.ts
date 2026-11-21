@@ -149,7 +149,7 @@ test('cache: repeats inside the freshness window cost nothing; failures and unli
 test('liquidity rating: holding value against the whole market\'s 24h volume, Low under 0.5%, Medium under 2%, High from 2%',async()=>{
  const {liquidityRating,checkListedCoin,MAJOR_COINS}=await import('../src/index.ts');
  assert.deepEqual([liquidityRating('4999','1000000')?.band,liquidityRating('5000','1000000')?.band,liquidityRating('19999','1000000')?.band,liquidityRating('20000','1000000')?.band],['low','medium','medium','high']);
- assert.equal(liquidityRating('1','0'),null,'no volume, no rating');assert.equal(liquidityRating('1',null),null);
+ assert.deepEqual(liquidityRating('1','0'),{share:null,band:'high'},'nothing traded in 24 hours: High');assert.equal(liquidityRating('1',null),null,'an unknown volume gives no rating');assert.equal(liquidityRating('0','0'),null);
  assert.equal(assessPosition(base({venues:[],volume24hUsd:'400000'})).liquidity!.band,'high','$10,000 against $400,000 of volume is 2.5%');
  assert.deepEqual([MAJOR_COINS.BTC,MAJOR_COINS.ETH,MAJOR_COINS.SOL,MAJOR_COINS.TON,MAJOR_COINS.GRAM],[1,1027,5426,11419,11419]);
  // $1B of BTC at a $60,000 price and $66.18B of daily volume (CMC, 21 Nov 2026) is about 1.5%: Medium, not yet High.
@@ -158,4 +158,10 @@ test('liquidity rating: holding value against the whole market\'s 24h volume, Lo
  assert.deepEqual([r.token.symbol,r.token.chain,r.full.state,r.full.proceeds,r.full.liquidity!.band],['BTC','listed','indicative',null,'medium']);
  assert.equal(r.full.gains!.markedGain,new Decimal('16666.66666667').mul(60000).minus(800000000).toFixed(),'the marked gain still uses the lots');
  assert.equal(r.slider.length,4);assert.equal(r.slider[0].liquidity!.band,'low','a tenth of the holding is Low');assert.ok(r.full.timeToSell!.length===4);
+});
+
+test('a failed chain connection leaves the exit not assessed, never dropped: the mark, rating and marked gain stay',()=>{
+ const r=assessPosition(base({venues:[],volume24hUsd:'4000000',exitError:'Ethereum connection failed, so the exit was not assessed (RPC down)'}));
+ assert.deepEqual([r.state,r.mark,r.proceeds,r.liquidity!.band,r.gains!.markedGain],['not-assessed','10000',null,'low','3000']);
+ assert.match(r.reasons.join(' '),/connection failed/);
 });

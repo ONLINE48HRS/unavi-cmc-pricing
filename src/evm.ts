@@ -2,7 +2,7 @@
 // the pool model at the same block) and the Uniswap v3 QuoterV2 (route quotes for concentrated liquidity). No keys, no
 // signing; a keyed RPC is used first when configured, then public fallbacks.
 export type Rpc=(method:string,params:unknown[])=>Promise<any>;
-export const PUBLIC_RPCS=['https://ethereum-rpc.publicnode.com','https://1rpc.io/eth'];
+export const PUBLIC_RPCS=['https://ethereum-rpc.publicnode.com','https://1rpc.io/eth','https://eth.drpc.org'];
 export const UNISWAP_V2_ROUTER='0x7a250d5630b4cf539739df2c5dacb4c659f2488d';
 export const UNISWAP_V3_QUOTER_V2='0x61ffe014ba17989e743c5f6cb21bf9697530b21e';
 

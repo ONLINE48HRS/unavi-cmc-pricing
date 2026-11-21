@@ -37,13 +37,17 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
  let overhang:ReturnType<typeof holderOverhang>|null=null;
  try{overhang=holderOverhang(await holdersList(deps.cmc,input.chain,addr),{pools:new Set(pools.map(p=>p.address))})}catch(e){if(!(e instanceof CmcError))throw e;notes.push(`holders list unavailable: ${e.message}`)}
 
- const decimals=input.chain==='ethereum'?await evmDecimals(need(deps.rpc,'an Ethereum RPC'),addr):await need(deps.solanaDecimals,'Solana decimals')(addr);
+ // A failed chain connection leaves the exit not assessed; the mark, the rating and the marked gain still stand.
+ const chainName=input.chain==='ethereum'?'Ethereum':'Solana',failed=(e:unknown)=>`${chainName} connection failed, so the exit was not assessed (${message(e)})`;
+ let decimals=18,exitError:string|undefined;
+ try{decimals=input.chain==='ethereum'?await evmDecimals(need(deps.rpc,'an Ethereum RPC'),addr):await need(deps.solanaDecimals,'Solana decimals')(addr)}catch(e){exitError=failed(e)}
  const quantity=new Decimal(input.quantity).toDecimalPlaces(decimals,Decimal.ROUND_DOWN).toFixed(),sizes=sliderQuantities(quantity,decimals);
  const reference=mark?Decimal.min(quantity,new Decimal(REFERENCE_USD).div(mark.price)).toDecimalPlaces(decimals,Decimal.ROUND_DOWN).toFixed():null;
  const held=overhang?new Decimal(overhang.tokens).toDecimalPlaces(decimals,Decimal.ROUND_DOWN):new Decimal(0);
  const quoteSizes=[...new Set([...sizes,...(reference&&new Decimal(reference).gt(0)?[reference]:[]),...(held.gt(0)?[held.toFixed(),held.plus(quantity).toFixed()]:[])])];
  const venues:Venue[]=[];let block:number|null=null;
 
+ if(!exitError)try{
  if(input.chain==='ethereum'){
   const rpc=need(deps.rpc,'an Ethereum RPC');block=await blockNumber(rpc);let v3=0;
   for(const p of [...pools].sort((a,b)=>new Decimal(b.liquidityUsd??0).cmp(a.liquidityUsd??0))){
@@ -69,9 +73,12 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
    const ref=reference?quotes[key(reference)]:undefined;
    venues.push({kind:'route',id:`jupiter:${addr}`,source:'jupiter',output:{symbol:'USDC',price:usdc},reference:ref&&'out' in ref?{quantity:reference!,out:ref.out}:null,quotes})}
  }
+ }catch(e){exitError=failed(e);venues.length=0;block=null}
+ // The whole market's 24h volume: the listing's figure, or CMC's DEX figure when that is higher (thin listings can report 0).
+ const volumes=[quote?.volume24h,dex?.volume24hUsd].filter((v):v is string=>v!=null),volume=volumes.sort((a,b)=>new Decimal(b).cmp(a))[0]??null;
 
  const now=clock().toISOString(),symbol=listed?.symbol??pools.flatMap(p=>p.tokens).find(t=>t.address===addr)?.symbol??'?';
- const at=(q:string,withOverhang:boolean)=>assessPosition({symbol,quantity:q,now,mark,security,venues,lots:input.lots,volume24hUsd:quote?.volume24h??null,
+ const at=(q:string,withOverhang:boolean)=>assessPosition({symbol,quantity:q,now,mark,security,venues,lots:input.lots,volume24hUsd:volume,exitError,
   overhang:withOverhang&&held.gt(0)?{tokens:held.toFixed(),liquidityUsd:dex?.liquidityUsd??null}:undefined});
  return {
   token:{chain:input.chain as Chain|'listed',address:addr,symbol,decimals,cmcId:listed?.id??null,matchedBy:listed?.by??null},

@@ -25,6 +25,8 @@ export type PositionInput={
  volume24hUsd?:string|null;
  // Tokens held by the largest wallets (see overhang.ts) and the token's total DEX liquidity in USD.
  overhang?:{tokens:string;liquidityUsd:string|null};
+ // Set when the chain could not be reached: the exit is not assessed, but the mark and rating still are.
+ exitError?:string;
 };
 
 const key=(q:string|Decimal)=>new Decimal(q).toFixed();
@@ -53,8 +55,10 @@ function bridgeFor(v:Venue,quantity:string,markPrice:string,tax:string,out:Decim
 // Liquidity rating: the holding's value as a share of the whole market's 24-hour volume. Under 0.5% sells in about an
 // hour at a 10% share of trading; 2% or more takes most of a working day and moves the price (owner-set bands).
 export const LIQUIDITY_BANDS={low:'0.005',medium:'0.02'};
-export function liquidityRating(valueUsd:string,volume24hUsd:string|null|undefined){
- if(!volume24hUsd||new Decimal(volume24hUsd).lte(0))return null;
+// A reported volume of zero means nothing traded in 24 hours: High, with no share to show. An unknown volume gives no rating.
+export function liquidityRating(valueUsd:string,volume24hUsd:string|null|undefined):{share:string|null;band:'low'|'medium'|'high'}|null{
+ if(volume24hUsd==null||volume24hUsd===''||new Decimal(volume24hUsd).lt(0))return null;
+ if(new Decimal(volume24hUsd).isZero())return new Decimal(valueUsd).gt(0)?{share:null,band:'high'}:null;
  const share=new Decimal(valueUsd).div(volume24hUsd);
  return {share:share.toFixed(),band:share.lt(LIQUIDITY_BANDS.low)?'low' as const:share.lt(LIQUIDITY_BANDS.medium)?'medium' as const:'high' as const};
 }
@@ -72,6 +76,7 @@ export function assessPosition(input:PositionInput){
  const none=(state:State,extra:object={})=>({...base,state,method:null,venue:null,proceeds:null,bridge:null,gains:mark&&input.lots?gains({lots:input.lots,quantity,markPrice:mark.price,proceeds:null}):null,overhang:null,reasons,conditions,timeToSell:mark?timeToSell(base.mark!,input.volume24hUsd):null,liquidity:mark?liquidityRating(base.mark!,input.volume24hUsd):null,...extra});
  if(!mark){reasons.push('unpriced');return none('not-assessed')}
  if(age(now,mark.at)>FRESH_MS.price){reasons.push('price stale');return none('not-assessed')}
+ if(input.exitError){reasons.push(input.exitError);return none('not-assessed')}
  // Exchange-listed holdings without a usable on-chain exit keep their mark and a time-to-sell warning, outside the assessed total.
  const fallback=()=>none(input.volume24hUsd&&new Decimal(input.volume24hUsd).gt(0)?'indicative':'not-assessed');
  if(!input.venues.length){reasons.push('no on-chain venue');return fallback()}
