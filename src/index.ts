@@ -11,3 +11,4 @@ export {jupiterClient,QuoteError,USDC_MINT,type JupiterQuote,type QuoteRecord} f
 export {assessPosition,summarise,sliderQuantities,timeToSell,liquidityRating,LIQUIDITY_BANDS,FRESH_MS,PARTICIPATION,type Assessment,type PositionInput,type Venue,type PoolVenue,type RouteVenue,type RouteQuote,type State} from './assess.ts';
 export {cachedClient,CACHE_TTL_MS} from './cache.ts';
 export {checkToken,checkListedCoin,MAJOR_COINS,type CheckInput,type CheckDeps,type CheckResult} from './check.ts';
+export {solanaDecimals,solanaTransferFee,TOKEN_PROGRAM,TOKEN_2022_PROGRAM} from './solana.ts';

@@ -13,7 +13,7 @@ import type {Lot} from './lots.ts';
 // The any-token check: chain, contract, quantity and optional purchase lots in; the same engine the product uses out.
 // CMC supplies identity, the mark, pool discovery, security and holders; the chain and Jupiter supply executable amounts.
 export type CheckInput={chain:Chain;address:string;quantity:string;lots?:Lot[];verifiedSellTax?:string};
-export type CheckDeps={cmc:CmcClient;jupiter?:ReturnType<typeof jupiterClient>;rpc?:Rpc;solanaDecimals?:(mint:string)=>Promise<number>;now?:()=>Date};
+export type CheckDeps={cmc:CmcClient;jupiter?:ReturnType<typeof jupiterClient>;rpc?:Rpc;solanaDecimals?:(mint:string)=>Promise<number>;solanaTransferFee?:(mint:string)=>Promise<string|null>;now?:()=>Date};
 
 // CMC's pool amounts must match the chain within 1% before a pool is modelled (measured: they matched exactly on PEPE/WETH).
 const RESERVE_TOLERANCE='0.01',REFERENCE_USD='50',MAX_V3_POOLS=2;
@@ -32,7 +32,11 @@ export async function checkToken(input:CheckInput,deps:CheckDeps){
  const dex=await dexPrice(deps.cmc,input.chain,addr);
  // A listed quote is the mark; otherwise CMC's DEX price. A DEX price without a time cannot be shown as fresh.
  const mark=quote?{price:quote.price,at:quote.at,source:`CoinMarketCap #${listed!.id} quotes/latest`}:dex?{price:dex.price,at:dex.at??'1970-01-01T00:00:00.000Z',source:'CoinMarketCap DEX token price'}:null;
- const detail=await securityDetail(deps.cmc,input.chain,addr),security={...classifySecurity(detail,{verifiedSellTax:input.verifiedSellTax}),at:detail?.fetchedAt??clock().toISOString()};
+ // On Solana the chain settles the tax question: the mint's own program decides whether a transfer can be charged a fee.
+ let chainTax:string|null=null;
+ if(input.chain==='solana'&&deps.solanaTransferFee){try{chainTax=await deps.solanaTransferFee(addr)}catch{}}
+ if(chainTax!==null)notes.push(chainTax==='0'?'Transfer fee checked on-chain: this mint cannot charge one.':`Transfer fee checked on-chain: ${new Decimal(chainTax).mul(100).toFixed()}% per transfer.`);
+ const detail=await securityDetail(deps.cmc,input.chain,addr),security={...classifySecurity(detail,{verifiedSellTax:chainTax??input.verifiedSellTax}),at:detail?.fetchedAt??clock().toISOString()};
  const pools=await dexPools(deps.cmc,input.chain,addr,10);
  let overhang:ReturnType<typeof holderOverhang>|null=null;
  try{overhang=holderOverhang(await holdersList(deps.cmc,input.chain,addr),{pools:new Set(pools.map(p=>p.address))})}catch(e){if(!(e instanceof CmcError))throw e;notes.push(`holders list unavailable: ${e.message}`)}

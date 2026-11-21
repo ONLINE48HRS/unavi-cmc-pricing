@@ -165,3 +165,13 @@ test('a failed chain connection leaves the exit not assessed, never dropped: the
  assert.deepEqual([r.state,r.mark,r.proceeds,r.liquidity!.band,r.gains!.markedGain],['not-assessed','10000',null,'low','3000']);
  assert.match(r.reasons.join(' '),/connection failed/);
 });
+
+test('Solana transfer fees come from the mint itself: a classic SPL mint cannot charge one; Token-2022 only through its extension',async()=>{
+ const {solanaTransferFee,TOKEN_PROGRAM,TOKEN_2022_PROGRAM}=await import('../src/index.ts');
+ const answer=(value:unknown)=>solanaTransferFee('https://rpc.test',(async()=>new Response(JSON.stringify({result:{value}}))) as any);
+ assert.equal(await answer({owner:TOKEN_PROGRAM})('m'),'0');
+ assert.equal(await answer({owner:TOKEN_2022_PROGRAM,data:{parsed:{info:{extensions:[]}}}})('m'),'0','Token-2022 without the fee extension');
+ assert.equal(await answer({owner:TOKEN_2022_PROGRAM,data:{parsed:{info:{extensions:[{extension:'transferFeeConfig',state:{olderTransferFee:{transferFeeBasisPoints:100},newerTransferFee:{transferFeeBasisPoints:250}}}]}}}})('m'),'0.025','the higher scheduled rate, never understated');
+ assert.equal(await answer({owner:'SomeOtherProgram111111111111111111111111111'})('m'),null);
+ assert.equal(await answer(null)('m'),null,'an unreadable mint stays unknown');
+});

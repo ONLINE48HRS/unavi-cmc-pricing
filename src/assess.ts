@@ -88,7 +88,7 @@ export function assessPosition(input:PositionInput){
   const value=base.mark!;
   return {...none('assessed'),method:'blocked' as const,proceeds:'0',bridge:{mark:value,proceeds:'0',parts:[{name:'blocked' as const,value}]},gains:input.lots?gains({lots:input.lots,quantity,markPrice:mark.price,proceeds:'0'}):null,reasons:['honeypot reported: the token cannot be sold']};
  }
- if(security.class==='tax-unverified'){reasons.push('sell tax reported without a stated unit; supply a verified rate');return fallback()}
+ if(security.class==='tax-unverified'){reasons.push(security.unknown.includes('sellTax')?'sell tax not reported by the source; supply a verified rate':'sell tax reported without a stated unit; supply a verified rate');return fallback()}
  const tax=security.sellTax??'0',candidates=input.venues.map(v=>evaluate(v,quantity,now,tax));
  for(const c of candidates)if('skipped' in c)reasons.push(`${c.venue.id}: ${c.skipped}`);
  // The seller uses the single venue that pays most. Venues are never combined: a split across pools is not quoted here.
