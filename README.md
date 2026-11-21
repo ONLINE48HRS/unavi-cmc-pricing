@@ -54,6 +54,17 @@ CoinMarketCap: 10 calls, 10 credits
 
 Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with each protocol's own router at one block. On 21 Nov 2026 (block 26462035) it matched on 20 sales across 5 pools (Uniswap v2 PEPE, USDC, DAI and WBTC against WETH; SushiSwap USDC/WETH), from 0.01% to 10% of the reserve, within one raw unit (largest difference 1.4e-16; tolerance 0.1%). Tests use synthetic fixtures only; no recorded CoinMarketCap data is shipped here.
 
+### In UNAVI
+
+The files in `src/` run in UNAVI unchanged.
+- **The copy:** UNAVI keeps them as an exact copy with a hash manifest naming this repo's commit, and its test suite fails if any file differs.
+- **What UNAVI supplies:** quantities and FIFO purchase lots from its reconciled ledger. The engine supplies the market side. The ledger, accounts and screens stay private.
+- **Cost:**
+  - Checking a four-token wallet costs about 31 credits.
+  - `cachedClient` then serves repeat requests within the freshness rules, so page views cost nothing until the data would go stale.
+  - Reports are rebuilt at most hourly, and only when someone opens the page.
+  - Live mode stops at 85% of the month's allowance. A dated recorded report is shown instead, labelled "not current prices".
+
 ## Run the demo
 
 ```
