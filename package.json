@@ -8,13 +8,15 @@
   "scripts": {
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "demo": "tsx demo/price-wallet.ts"
+    "demo": "tsx demo/price-wallet.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"demo/**/*.ts\" \"scripts/**/*.ts\""
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "prettier": "^3.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },

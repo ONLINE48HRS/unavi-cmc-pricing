@@ -1,5 +1,7 @@
 # unavi-cmc-pricing
 
+[![ci](https://github.com/ONLINE48HRS/unavi-cmc-pricing/actions/workflows/ci.yml/badge.svg)](https://github.com/ONLINE48HRS/unavi-cmc-pricing/actions/workflows/ci.yml)
+
 Prices the long tail of a crypto portfolio with the [CoinMarketCap API](https://coinmarketcap.com/api/).
 
 [UNAVI](https://unavi.ai) is a personal and family wealth terminal: bank accounts, brokers, exchanges and wallets in one reconciled ledger. Its crypto prices come from Binance spot markets, which cover the large coins well. A real wallet holds more than that: Solana memecoins, Cosmos tokens, small ERC-20s. Those used to show up as **unpriced**, which understates net worth.
@@ -11,11 +13,19 @@ This module fills those gaps with CoinMarketCap, and only those gaps:
 3. **All the gaps are priced in one batched quote call**, so a wallet full of small tokens costs a few credits, not one per token.
 4. **Every request and response is kept**, with a SHA-256 hash of the response, so each price can be traced to a real API call.
 
-Prices stay exact: CoinMarketCap returns JSON numbers (tiny prices arrive as `1.23e-7`), and they are written out in full as decimal strings. Values are multiplied as exact decimals and never pass through floating point.
+Prices stay exact: CoinMarketCap returns JSON numbers (tiny prices arrive as `1.23e-7`), and they are written out in full as decimal strings. Values are multiplied as exact decimals and never pass through floating point (decimal.js at its default 20 significant digits, so results hold to about 1e-16 relative).
 
-## Liquidity reality check (in development for Build with CMC, Round 2)
+## Liquidity reality check (built for Build with CMC, Round 2)
 
-New for the hackathon: an engine that says what a holding is marked at, what selling it could realistically return, and what that does to the profit on the holder's own purchase lots. The pricing module above predates the event; everything in this section is new.
+New for the hackathon: an engine that says what a holding is marked at, what selling it could realistically return, and what that does to the profit on the holder's own purchase lots. The pricing module above predates the event; everything in this section is new. It runs live at [unavi.ai/reality-check](https://unavi.ai/reality-check?sample=1) on a sample family's wallet, with a "Check any token" box for any Ethereum or Solana token or major coin.
+
+```mermaid
+flowchart LR
+  L["Ledger: quantity and<br/>FIFO purchase lots"] --> E["Engine<br/>(this repo)"]
+  C["CoinMarketCap: identity, mark,<br/>pools, security, holders, 24h volume"] --> E
+  X["Chain reserves or<br/>Jupiter / Uniswap v3 quotes"] --> E
+  E --> R["Report: mark → proceeds bridge,<br/>gain on screen vs after exit,<br/>liquidity risk, evidence"]
+```
 
 ```
 npx tsx demo/check-token.ts <ethereum|solana> <contract or mint> <quantity> [cost basis USD]
@@ -36,6 +46,7 @@ CoinMarketCap: 10 calls, 10 credits
   - On Ethereum, Uniswap v2 and SushiSwap pools found by CMC are priced with the constant-product formula from reserves read on-chain. A pool is used only when CMC's protocol name and factory agree, the pair's own `factory()` matches, and CMC's amounts are within 1% of the chain (they matched exactly on PEPE/WETH).
   - Uniswap v3 pools are quoted with QuoterV2.
   - On Solana, Jupiter's `/swap/v2/order` quotes the actual size.
+  - Ethereum pools count only when paired with WETH, USDC, USDT, DAI or WBTC, so a thin quote token cannot inflate proceeds.
   - The seller uses the single venue that pays most; venues are never combined.
 - **Bridge from mark to proceeds:**
   - Pool model: reference difference, transfer tax, fee and price impact.
@@ -43,22 +54,22 @@ CoinMarketCap: 10 calls, 10 credits
   - The parts always add up to mark minus proceeds exactly.
 - **Ledger:** marked gain and execution-adjusted gain on the same FIFO lots, for every slider size (10/25/50/100%).
 - **Security** (`/v1/dex/security/detail`):
-  - No record means "not checked", never safe, and the position is not assessed.
+  - No record means "not checked", never safe: the exit is not assessed. A token whose 24-hour volume is known is still rated, and shown as indicative.
   - Only a reported honeypot sets proceeds to zero.
   - Other reported risks are shown alongside the proceeds.
 - **Holder overhang** (`/v1/dex/holders/list`):
   - Counts the top 10 holders, excluding pools, burn, exchange and locker wallets, each with its reason.
-  - Compares their tokens with DEX liquidity, then prices the user's sale after they sell first. This is exact for a pool; for routes it is shown only when the two quotes are consistent.
-- **Liquidity rating, for every holding:** the holding's value as a share of the whole market's 24-hour volume (CMC `volume_24h`).
-  - **Low:** under 0.5%.
-  - **Medium:** under 2%.
-  - **High:** 2% or more.
+  - Compares their tokens with DEX liquidity. For a pool it also prices the user's sale after they sell first, exactly. A route shows only the size against liquidity: two independent route quotes for sales far beyond the pool's depth swung by two orders of magnitude between runs, so no dollar figure is given.
+- **Liquidity risk, for every holding** (`liquidityRisk`, also exported as `liquidityRating`): the holding's value as a share of the whole market's 24-hour volume (CMC `volume_24h`).
+  - **Low risk:** under 0.5%.
+  - **Medium risk:** under 2%.
+  - **High risk:** 2% or more. A token with zero reported volume is High.
 
   At a 10% share of trading, 0.5% of a day's volume sells in about an hour.
 - **Major native coins** (BTC, ETH, SOL, BNB, XRP and others): `checkListedCoin` matches them by CMC id from a fixed list, never by a typed symbol. There is no pool to model, so they get the rating and an indicative time to sell at 1%, 5%, 10% or 15% of 24-hour volume. This is shown as a warning, never as proceeds. On 21 Nov 2026, $1B of BTC was about 1.5% of its $66B daily volume: Medium.
 - **Three states:** assessed, indicative or not assessed. Portfolio totals reconcile to the crypto mark. Two holdings selling into the same venue are moved out of the assessed total, not summed. Net worth is passed through unchanged.
 
-Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with each protocol's own router at one block. On 21 Nov 2026 (block 26462035) it matched on 20 sales across 5 pools (Uniswap v2 PEPE, USDC, DAI and WBTC against WETH; SushiSwap USDC/WETH), from 0.01% to 10% of the reserve, within one raw unit (largest difference 1.4e-16; tolerance 0.1%). Tests use synthetic fixtures only; no recorded CoinMarketCap data is shipped here.
+Validation: `npx tsx scripts/validate-v2.ts` prices the same sales with the formula and with each protocol's own router at one block. On 22 Nov 2026 (block 26467904) it matched on 20 sales across 5 pools (Uniswap v2 PEPE, USDC, DAI and WBTC against WETH; SushiSwap USDC/WETH), from 0.01% to 10% of the reserve, within one raw unit (largest difference 1.35e-16; tolerance 0.1%). Tests use invented fixtures only; no recorded CoinMarketCap data is shipped here.
 
 ### In UNAVI
 
@@ -66,7 +77,7 @@ The files in `src/` run in UNAVI unchanged.
 - **The copy:** UNAVI keeps them as an exact copy with a hash manifest naming this repo's commit, and its test suite fails if any file differs.
 - **What UNAVI supplies:** quantities and FIFO purchase lots from its reconciled ledger. The engine supplies the market side. The ledger, accounts and screens stay private.
 - **Cost:**
-  - Checking a four-token wallet costs about 31 credits.
+  - A cold rebuild of the six-holding sample costs 32 credits; an any-token check 8 to 10.
   - `cachedClient` then serves repeat requests within the freshness rules, so page views cost nothing until the data would go stale.
   - Reports are rebuilt at most hourly, and only when someone opens the page.
   - Live mode stops at 85% of the month's allowance. A dated recorded report is shown instead, labelled "not current prices".
@@ -111,7 +122,7 @@ Each run saves its requests and responses to `evidence/`. The API key is sent on
 
 A full any-token check costs 8–10 credits. The DEX endpoints' credit costs are not documented; these were measured on the Basic plan.
 
-Daily history is clamped to what the plan allows (Basic: one year), and the clamp is reported, never guessed. Without a key, the client uses CMC's keyless public API (`/public-api/...`). A `429` waits as long as `Retry-After` asks, then retries.
+Daily history is clamped to what the plan allows (Basic: one year), and the clamp is reported, never guessed. Without a key, the client uses CMC's keyless public API (`/public-api/...`). A `429` waits as long as `Retry-After` asks, then retries; pass `retries:0` to fail at once (UNAVI's interactive check does). Every CoinMarketCap and Jupiter call times out after 10 seconds.
 
 ## Use it
 
@@ -127,9 +138,11 @@ console.log(client.credits(),client.calls);   // what it cost, and the evidence
 ## Tests
 
 ```
-npm test        # offline, synthetic fixtures
+npm test        # offline, invented fixtures
 npm run typecheck
 ```
+
+`test/check.test.ts` runs `checkToken` end to end on each chain with fake CoinMarketCap, RPC and Jupiter responses, and tests every freshness limit on both sides of its boundary. CI runs both commands on Node 22 for every push.
 
 ## What the API made possible, and where it got in the way
 
@@ -137,7 +150,7 @@ npm run typecheck
 - **Got in the way:** v3 `quotes/latest` returns `quote` as an array, while v3 `quotes/historical` returns it as an object keyed by currency. `interval=daily` returns the first quote of the day, not the close, so you have to know to use `24h` from 23:59. Contract lookups go through the metadata endpoint (`info`); a dedicated address-to-ID lookup would be clearer.
 - **Made possible (DEX API):** pool discovery with protocol and factory, contract security and holder lists for any token, all on the free plan. CMC's pool amounts matched on-chain reserves exactly, so CMC can find and label pools while the chain supplies the reserves.
 - **Got in the way (DEX API):**
-  - `security/detail` documents `sellTax` only as "Sell tax", with no unit. A non-zero value could be a fraction or a percentage, so it cannot be applied safely; such tokens stay not assessed unless a verified rate is supplied. The values of `honeypotStatus` are not documented either: we observed "Unknown" and act only on "Yes".
+  - `security/detail` documents `sellTax` only as "Sell tax", with no unit. A non-zero value could be a fraction or a percentage, so it cannot be applied safely; such tokens stay not assessed unless a verified rate is supplied. The values of `honeypotStatus` are not documented either: we have seen "Yes", "No" and "Unknown". Any affirmative form ("yes", true, 1) blocks the sale; anything unrecognised, or a missing field, is listed as not checked.
   - The DEX endpoints' credit costs are not documented. `token-liquidity/query` returned "Parameter error" with the documented optional parameters.
   - Holder history and exchange depth (`holders/trend/list`, `market-pairs/latest`) are not on the free plan.
 
